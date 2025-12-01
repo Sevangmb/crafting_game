@@ -37,7 +37,16 @@
       "Bash(del add_coofandy_sweater.py)",
       "Bash(if exist node_modules.cache dir node_modules.cache)",
       "Bash(timeout 10 python:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(timeout 5 echo:*)",
+      "Bash(timeout 1 echo:*)",
+      "Bash(chcp 6500)",
+      "Bash(xargs:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(del nul)"
     ],
     "deny": [],
     "ask": []
