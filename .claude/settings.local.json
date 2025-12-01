@@ -46,7 +46,8 @@
       "Bash(git push:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(del nul)"
+      "Bash(del nul)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []
