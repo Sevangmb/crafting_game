@@ -141,11 +141,29 @@ def hunt_at_location(player):
     hunting_xp = mob.xp_reward
     player_service.award_xp(player, 'hunting', hunting_xp)
 
-    return {
+    # Update quest progress for defeating mobs
+    from .quest_service import QuestService
+    completed_quests = QuestService.update_quest_progress(
+        player,
+        'defeat',
+        mob_id=mob.id,
+        quantity=1
+    )
+
+    result = {
         'message': f'Vous avez chassé un {mob.name} !',
         'result': 'success',
         'mob': mob.name,
         'damage_taken': total_player_dmg,
         'xp_gained': mob.xp_reward,
         'loot': loot_results
-    }, 200
+    }
+
+    # Add completed quests info if any
+    if completed_quests:
+        result['completed_quests'] = [{
+            'name': cq['quest'].name,
+            'rewards': cq['rewards']
+        } for cq in completed_quests]
+
+    return result, 200
