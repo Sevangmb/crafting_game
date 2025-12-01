@@ -11,6 +11,7 @@ from .views.quest_views import QuestViewSet, DynamicEventViewSet
 from .views.trading_views import TradeViewSet
 from .views.leaderboard_views import LeaderboardViewSet
 from .views.biome_views import BiomeViewSet
+from .views.encounter_views import EncounterViewSet
 from .views import combat_views, vehicle_views, upload_views, bank_views, nutrition_views, health_views, character_sheet_views
 from . import views
 
@@ -41,6 +42,7 @@ router.register(r'events', DynamicEventViewSet, basename='events')
 router.register(r'trades', TradeViewSet, basename='trades')
 router.register(r'leaderboards', LeaderboardViewSet, basename='leaderboards')
 router.register(r'biomes', BiomeViewSet, basename='biomes')
+router.register(r'encounters', EncounterViewSet, basename='encounters')
 
 urlpatterns = [
     path('', include(router.urls)),

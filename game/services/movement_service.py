@@ -251,5 +251,30 @@ def move_player(player, direction):
         grid_y=player.grid_y
     )
 
-    # Return player and achievements
-    return player, 200, new_achievements if new_achievements else [], completed_quests
+    # Check for random enemy encounter
+    from .encounter_service import EncounterService
+    encountered, enemy, attacked_first = EncounterService.check_for_encounter(player, cell)
+
+    encounter_data = None
+    if encountered:
+        # Create the encounter
+        encounter = EncounterService.create_encounter(player, enemy, cell, attacked_first)
+        encounter_data = {
+            'encountered': True,
+            'enemy': {
+                'id': enemy.id,
+                'name': enemy.name,
+                'description': enemy.description,
+                'icon': enemy.icon,
+                'level': enemy.level,
+                'health': enemy.health,
+                'attack': enemy.attack,
+                'defense': enemy.defense,
+                'aggression_level': enemy.aggression_level,
+            },
+            'attacked_first': attacked_first,
+            'encounter_id': encounter.id
+        }
+
+    # Return player, achievements, and encounter data
+    return player, 200, new_achievements if new_achievements else [], completed_quests, encounter_data

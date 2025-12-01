@@ -249,13 +249,13 @@ class Command(BaseCommand):
             # Survival system
             {
                 'key': 'survival_hunger_decrease_rate',
-                'value': '1',
-                'description': 'Hunger decrease per minute'
+                'value': '0.15',
+                'description': 'Hunger decrease per minute (realistic: ~10 hours to starve)'
             },
             {
                 'key': 'survival_thirst_decrease_rate',
-                'value': '1.5',
-                'description': 'Thirst decrease per minute'
+                'value': '0.35',
+                'description': 'Thirst decrease per minute (realistic: ~5 hours to dehydrate)'
             },
             {
                 'key': 'survival_radiation_decay_rate',

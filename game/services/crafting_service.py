@@ -78,6 +78,9 @@ def craft_recipe(player, recipe_id, quantity=1):
             inventory.quantity -= need
             inventory.save()
 
+    # Deduct energy cost
+    player.energy -= energy_cost
+
     # Add result to inventory
     result_inventory, created = Inventory.objects.get_or_create(
         player=player,

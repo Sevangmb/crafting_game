@@ -53,6 +53,8 @@ def _process_digestion(player, elapsed_minutes):
     """
     Process food digestion from stomach to intestines to absorption
     """
+    now = timezone.now()
+
     # Stomach to intestines (takes ~30-60 minutes in real life)
     if player.stomach_fullness > 0:
         # Transfer from stomach to intestines
@@ -115,6 +117,9 @@ def _process_digestion(player, elapsed_minutes):
     # Auto bathroom if needed
     if player.bladder_fullness >= 100 or player.bowel_fullness >= 100:
         player.needs_bathroom = True
+
+    # Save player changes
+    player.save()
 
 
 def _burn_calories(player, elapsed_minutes):

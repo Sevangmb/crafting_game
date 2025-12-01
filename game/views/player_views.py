@@ -111,16 +111,21 @@ class PlayerViewSet(viewsets.ModelViewSet):
 
         result = player_service.move_player(player, direction)
 
-        # Handle new format with achievements and quests
-        if len(result) == 4:
+        # Handle new format with achievements, quests, and encounters
+        if len(result) == 5:
+            player_obj, status_code, new_achievements, completed_quests, encounter_data = result
+        elif len(result) == 4:
             player_obj, status_code, new_achievements, completed_quests = result
+            encounter_data = None
         elif len(result) == 3:
             player_obj, status_code, new_achievements = result
             completed_quests = []
+            encounter_data = None
         else:
             player_obj, status_code = result
             new_achievements = []
             completed_quests = []
+            encounter_data = None
 
         if status_code != 200:
             return Response(player_obj, status=status_code)
@@ -154,6 +159,10 @@ class PlayerViewSet(viewsets.ModelViewSet):
                 }
                 for q in completed_quests
             ]
+
+        # Add encounter data if any
+        if encounter_data:
+            response_data['encounter'] = encounter_data
 
         return Response(response_data)
 

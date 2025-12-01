@@ -1,5 +1,9 @@
 from ..models import Inventory
 from .survival_service import SurvivalService
+from .advanced_nutrition_service import AdvancedNutritionService
+import logging
+
+logger = logging.getLogger(__name__)
 
 def consume_item(player, inventory_id):
     try:
@@ -12,7 +16,53 @@ def consume_item(player, inventory_id):
 
     material = inventory.material
 
-    # Use survival service to consume food/drink
+    # Try to use advanced nutrition service first (with detailed nutrients)
+    try:
+        # Check if food has nutritional profile
+        if hasattr(material, 'nutrition'):
+            # Use advanced nutrition system (proteins, vitamins, minerals, etc.)
+            nutrition_result = AdvancedNutritionService.eat_food(player, material, quantity_grams=100)
+
+            # Also update basic survival stats (hunger/thirst)
+            survival_result = SurvivalService.consume_food(player, material, quantity=1)
+
+            # Remove consumed item
+            inventory.quantity -= 1
+            if inventory.quantity <= 0:
+                inventory.delete()
+            else:
+                inventory.save()
+
+            # Build comprehensive message
+            message_parts = []
+            if survival_result.get('hunger_restored', 0) > 0:
+                message_parts.append(f"🍖 +{int(survival_result['hunger_restored'])} faim")
+            if survival_result.get('thirst_restored', 0) > 0:
+                message_parts.append(f"💧 +{int(survival_result['thirst_restored'])} soif")
+            if survival_result.get('energy_restored', 0) > 0:
+                message_parts.append(f"⚡ +{int(survival_result['energy_restored'])} énergie")
+
+            # Add nutrition info if available
+            if nutrition_result.get('success'):
+                message_parts.append(f"✨ Nutriments absorbés")
+
+            message = ' | '.join(message_parts) if message_parts else 'Consommé'
+
+            return {
+                'message': message,
+                'energy': survival_result.get('new_energy', player.energy),
+                'max_energy': player.max_energy,
+                'hunger': survival_result.get('new_hunger', player.hunger),
+                'thirst': survival_result.get('new_thirst', player.thirst),
+                'radiation': survival_result.get('new_radiation', player.radiation),
+                'nutrition_updated': True,
+                'inventory_updated': inventory.quantity if hasattr(inventory, 'quantity') else 0
+            }, 200
+    except Exception as e:
+        # Fallback to basic survival system if advanced nutrition fails
+        logger.warning(f"Advanced nutrition failed for {material.name}, using basic system: {e}")
+
+    # Fallback: Use basic survival service
     result = SurvivalService.consume_food(player, material, quantity=1)
 
     # Remove consumed item
@@ -40,9 +90,7 @@ def consume_item(player, inventory_id):
         'energy': result['new_energy'],
         'max_energy': player.max_energy,
         'hunger': result['new_hunger'],
-        'max_hunger': player.max_hunger,
         'thirst': result['new_thirst'],
-        'max_thirst': player.max_thirst,
         'radiation': result['new_radiation'],
         'inventory_updated': inventory.quantity if hasattr(inventory, 'quantity') else 0
     }, 200

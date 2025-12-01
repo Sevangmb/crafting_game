@@ -126,3 +126,99 @@ class POIViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @action(detail=False, methods=['post'], url_path='sell')
+    def sell(self, request):
+        """
+        Sell an item to a POI
+        Expected data: {poi_type, material_id, quantity}
+        """
+        try:
+            player = get_object_or_404(Player, user=request.user)
+
+            poi_type = request.data.get('poi_type')
+            material_id = request.data.get('material_id')
+            quantity = request.data.get('quantity', 1)
+
+            if not poi_type or not material_id:
+                return Response(
+                    {'error': 'poi_type et material_id sont requis'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Validate quantity
+            try:
+                quantity = int(quantity)
+                if quantity <= 0:
+                    raise ValueError()
+            except (ValueError, TypeError):
+                return Response(
+                    {'error': 'Quantité invalide'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Attempt to sell
+            success, message, player_data = POIService.sell_item(
+                player, poi_type, material_id, quantity
+            )
+
+            if success:
+                return Response({
+                    'success': True,
+                    'message': message,
+                    'player': player_data
+                })
+            else:
+                return Response({
+                    'success': False,
+                    'error': message
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'], url_path='get-sell-price')
+    def get_sell_price(self, request):
+        """
+        Get the sell price for a material at a specific POI
+        Expected data: {poi_type, material_id}
+        """
+        try:
+            from ..models import Material
+
+            poi_type = request.data.get('poi_type')
+            material_id = request.data.get('material_id')
+
+            if not poi_type or not material_id:
+                return Response(
+                    {'error': 'poi_type et material_id sont requis'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get material
+            try:
+                material = Material.objects.get(id=material_id)
+            except Material.DoesNotExist:
+                return Response(
+                    {'error': 'Matériau non trouvé'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Get sell price
+            sell_price = POIService.get_sell_price(material, poi_type)
+
+            return Response({
+                'material_id': material_id,
+                'poi_type': poi_type,
+                'sell_price': sell_price,
+                'accepted': sell_price > 0
+            })
+
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

@@ -118,7 +118,11 @@ def detect_biome_from_osm(features: List[Dict[str, Any]]) -> Optional[str]:
     elif has_mountain:
         return 'mountain'
     
-    # Priority 3: Water features
+    # Priority 3: Urban (higher priority than water for cities)
+    elif is_urban:
+        return 'urban'
+
+    # Priority 4: Water features
     elif has_water and not has_coastline:
         # Distinguish between large water bodies and wetlands
         if has_wetland:
@@ -137,7 +141,7 @@ def detect_biome_from_osm(features: List[Dict[str, Any]]) -> Optional[str]:
     elif has_jungle:
         return 'jungle'
     
-    # Priority 6: Vegetation
+    # Priority 7: Vegetation
     elif has_forest:
         return 'forest'
     elif has_farmland:
@@ -146,10 +150,6 @@ def detect_biome_from_osm(features: List[Dict[str, Any]]) -> Optional[str]:
         return 'savanna'  # Scrubland is similar to savanna
     elif has_park or has_grassland:
         return 'plains'
-    
-    # Priority 7: Urban (lowest priority for natural features)
-    elif is_urban:
-        return 'urban'
     
     # No OSM biome detected
     return None

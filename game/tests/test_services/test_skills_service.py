@@ -24,20 +24,22 @@ class SkillsServiceTestCase(TestCase):
         self.player = Player.objects.create(user=self.user)
         
         # Create test skill
-        self.skill = Skill.objects.create(
+        self.skill, _ = Skill.objects.get_or_create(
             code='gathering',
-            name='Gathering',
-            description='Test gathering skill'
+            defaults={
+                'name': 'Gathering',
+                'description': 'Test gathering skill'
+            }
         )
         
         # Set default config
-        GameConfig.objects.create(
+        GameConfig.objects.get_or_create(
             key='default_skill_xp_to_next',
-            value='50'
+            defaults={'value': '50'}
         )
-        GameConfig.objects.create(
+        GameConfig.objects.get_or_create(
             key='skill_level_multiplier',
-            value='50'
+            defaults={'value': '50'}
         )
     
     def test_ensure_default_skills_creates_crafting(self):
@@ -80,10 +82,11 @@ class SkillsServiceTestCase(TestCase):
     def test_award_xp_levels_up_when_threshold_reached(self):
         """Test that player levels up when XP threshold is reached"""
         player_skill, leveled = award_xp(self.player, 'gathering', 100)
-        
+
         self.assertTrue(leveled)
-        self.assertEqual(player_skill.level, 3)  # Started at 1, gained 100 XP (50 per level)
+        self.assertEqual(player_skill.level, 2)  # Started at 1, gained 100 XP (50 for first level, 50/100 for next)
         self.assertEqual(player_skill.total_xp, 100)
+        self.assertEqual(player_skill.xp, 50)  # 50 XP remaining towards level 3
     
     def test_award_xp_multiple_level_ups(self):
         """Test multiple level ups from single XP award"""
@@ -105,7 +108,9 @@ class SkillsServiceTestCase(TestCase):
             effect_type='gather_bonus',
             effect_value=5
         )
-        
+
+        # Create PlayerSkill first
+        get_or_create_player_skill(self.player, 'gathering')
         auto_unlock_talents(self.player, 'gathering')
         
         self.assertTrue(

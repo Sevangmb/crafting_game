@@ -8,7 +8,7 @@ from .items import Vehicle
 from .world import MapCell, CellMaterial, GatheringLog
 from .crafting import Workstation, Recipe, RecipeIngredient, CraftingLog
 from .buildings import BuildingType, BuildingRecipe, Building, House
-from .combat import Mob, CombatLog
+from .combat import Mob, CombatLog, RandomEnemy, Encounter
 from .economy import Shop, ShopItem, Bank, Transaction, TradeOffer
 from .skills import Skill, TalentNode
 from .achievements import Achievement, PlayerAchievement
