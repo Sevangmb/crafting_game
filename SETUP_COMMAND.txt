@@ -1,0 +1,115 @@
+========================================
+COMMANDE A COPIER/COLLER SUR LE SERVEUR
+========================================
+
+Connectez-vous au serveur PostgreSQL (82.65.121.46) et exécutez cette commande complète :
+
+sudo bash -c '
+# Configuration PostgreSQL pour accès distant
+
+echo "==> Configuration PostgreSQL..."
+
+# Trouver version et config
+PG_VERSION=$(ls /etc/postgresql/ 2>/dev/null | head -1)
+if [ -z "$PG_VERSION" ]; then
+    PG_VERSION=$(psql --version | grep -oP "\d+" | head -1)
+fi
+
+PG_CONF="/etc/postgresql/${PG_VERSION}/main"
+if [ ! -d "$PG_CONF" ]; then
+    PG_CONF="/var/lib/pgsql/data"
+fi
+
+echo "Config directory: $PG_CONF"
+
+# Backup
+cp "$PG_CONF/postgresql.conf" "$PG_CONF/postgresql.conf.bak.$(date +%Y%m%d)" 2>/dev/null
+cp "$PG_CONF/pg_hba.conf" "$PG_CONF/pg_hba.conf.bak.$(date +%Y%m%d)" 2>/dev/null
+
+# Configurer listen_addresses
+echo "==> Configuring listen_addresses..."
+sed -i "s/#listen_addresses = '\''localhost'\''/listen_addresses = '\''*'\''/" "$PG_CONF/postgresql.conf"
+sed -i "s/listen_addresses = '\''localhost'\''/listen_addresses = '\''*'\''/" "$PG_CONF/postgresql.conf"
+
+# Ajouter règle pg_hba.conf
+echo "==> Configuring pg_hba.conf..."
+if ! grep -q "host.*crafting_game.*sevans" "$PG_CONF/pg_hba.conf"; then
+    echo "host    crafting_game    sevans    0.0.0.0/0    md5" >> "$PG_CONF/pg_hba.conf"
+    echo "Added remote access rule"
+fi
+
+# Ouvrir pare-feu
+echo "==> Opening firewall..."
+ufw allow 5432/tcp 2>/dev/null || firewall-cmd --permanent --add-port=5432/tcp 2>/dev/null
+firewall-cmd --reload 2>/dev/null
+
+# Redémarrer PostgreSQL
+echo "==> Restarting PostgreSQL..."
+systemctl restart postgresql 2>/dev/null || service postgresql restart 2>/dev/null
+
+# Vérifier
+echo "==> Checking PostgreSQL status..."
+netstat -plnt 2>/dev/null | grep 5432 || ss -plnt 2>/dev/null | grep 5432
+
+echo "==> Server configuration complete!"
+'
+
+# Maintenant créer la base de données et l'utilisateur
+sudo -u postgres psql <<'EOF'
+-- Créer utilisateur
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_user WHERE usename = 'sevans') THEN
+        CREATE USER sevans WITH PASSWORD 'Oketos2727!';
+        RAISE NOTICE 'User sevans created';
+    ELSE
+        RAISE NOTICE 'User sevans already exists';
+    END IF;
+END
+$$;
+
+-- Créer base de données
+SELECT 'CREATE DATABASE crafting_game OWNER sevans'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'crafting_game')\gexec
+
+-- Donner privilèges
+GRANT ALL PRIVILEGES ON DATABASE crafting_game TO sevans;
+
+-- Se connecter et configurer
+\c crafting_game
+
+GRANT ALL PRIVILEGES ON SCHEMA public TO sevans;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO sevans;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO sevans;
+
+-- Vérifier
+\l crafting_game
+\du sevans
+
+-- Test
+SELECT 'PostgreSQL is ready!' as status;
+EOF
+
+echo ""
+echo "========================================="
+echo "Configuration terminée !"
+echo "========================================="
+echo "Testez la connexion locale:"
+echo "  psql -h localhost -U sevans -d crafting_game"
+echo ""
+echo "Mot de passe: Oketos2727!"
+echo "========================================="
+
+========================================
+FIN DE LA COMMANDE
+========================================
+
+Une fois exécuté avec succès, revenez sur votre machine Windows et lancez:
+
+python test_db.py
+
+Si ça marche, lancez la migration:
+
+python migrate_to_postgres.py
+
+========================================

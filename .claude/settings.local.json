@@ -47,7 +47,11 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(del nul)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File setup_remote_postgres.ps1)",
+      "Bash(ping:*)",
+      "Bash(ipconfig:*)",
+      "Bash(powershell -Command \"Test-NetConnection -ComputerName 82.65.121.46 -Port 5432\")"
     ],
     "deny": [],
     "ask": []

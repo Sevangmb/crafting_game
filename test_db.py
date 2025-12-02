@@ -5,7 +5,7 @@ import psycopg2
 
 config = {
     'host': '82.65.121.46',
-    'port': 5432,
+    'port': 5432,  # PostgreSQL runs on port 5432 in the Docker container
     'database': 'crafting_game',
     'user': 'sevans',
     'password': 'Oketos2727!',
