@@ -1,0 +1,374 @@
+import React, { useState } from 'react';
+import {
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
+    Box,
+    Typography,
+    LinearProgress,
+    Paper,
+    Chip,
+    List,
+    ListItem,
+    ListItemText,
+    Grid,
+    Alert,
+    Tooltip
+} from '@mui/material';
+import {
+    Gavel,
+    Shield,
+    DirectionsRun,
+    Favorite,
+    FlashOn
+} from '@mui/icons-material';
+import { combatAPI } from '../../services/api';
+import { useGameStore } from '../../stores/useGameStore';
+import logger from '../../utils/logger';
+
+function CombatInterface({ open, onClose, initialMob = null, onVictory }) {
+    const [combatState, setCombatState] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const showNotification = useGameStore((state) => state.showNotification);
+    const setPlayer = useGameStore((state) => state.setPlayer);
+
+    // Start combat when dialog opens, reset when closing
+    React.useEffect(() => {
+        if (open && !combatState) {
+            setError(null);
+            startCombat();
+        }
+        // Reset state when closing
+        if (!open) {
+            setCombatState(null);
+            setError(null);
+        }
+    }, [open]);
+
+    const startCombat = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await combatAPI.startCombat(initialMob?.id);
+            setCombatState(response.data);
+            logger.debug('Combat started:', response.data);
+        } catch (error) {
+            logger.error('Failed to start combat:', error);
+            const errorMsg = error.response?.data?.error || 'Erreur lors du démarrage du combat';
+            setError(errorMsg);
+            showNotification(errorMsg, 'error');
+            // Auto-close after showing error
+            setTimeout(() => onClose(), 2000);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const executeCombatAction = async (action) => {
+        if (!combatState || combatState.status !== 'ongoing') return;
+
+        setLoading(true);
+        try {
+            const response = await combatAPI.executeCombatAction(combatState, action);
+            const newState = response.data;
+            setCombatState(newState);
+
+            // Update player stats
+            if (newState.player_current_health !== undefined) {
+                setPlayer({
+                    health: newState.player_current_health,
+                    energy: newState.player_current_energy,
+                    level: newState.player_level,
+                    experience: newState.player_experience
+                });
+            }
+
+            // Handle combat end
+            if (newState.status === 'victory') {
+                showNotification(`Victoire ! +${newState.xp_gained} XP`, 'success');
+                if (onVictory) onVictory(newState);
+            } else if (newState.status === 'defeated') {
+                showNotification('Vous avez été vaincu...', 'error');
+            } else if (newState.status === 'fled') {
+                showNotification('Vous avez fui le combat', 'warning');
+            }
+
+            logger.debug('Combat action executed:', newState);
+        } catch (error) {
+            logger.error('Failed to execute combat action:', error);
+            showNotification(error.response?.data?.error || "Erreur lors de l'action", 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleClose = () => {
+        setCombatState(null);
+        onClose();
+    };
+
+    // Show error if present
+    if (error) {
+        return (
+            <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth
+                PaperProps={{ sx: { bgcolor: '#1a1a1a', border: '1px solid #333' } }}>
+                <DialogContent>
+                    <Alert severity="error" sx={{ mt: 2 }}>
+                        {error}
+                    </Alert>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
+                        Fermeture automatique...
+                    </Typography>
+                </DialogContent>
+            </Dialog>
+        );
+    }
+
+    if (!combatState) {
+        return (
+            <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth
+                PaperProps={{ sx: { bgcolor: '#1a1a1a', border: '1px solid #333' } }}>
+                <DialogContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                        <Typography>Chargement du combat...</Typography>
+                    </Box>
+                </DialogContent>
+            </Dialog>
+        );
+    }
+
+    const mobHealthPercent = (combatState.mob_health / combatState.mob_max_health) * 100;
+    const playerHealthPercent = (combatState.player_health / combatState.player_max_health) * 100;
+    const isOngoing = combatState.status === 'ongoing';
+
+    return (
+        <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth
+            PaperProps={{ sx: { bgcolor: '#0a0a0a', border: '2px solid #ff9800', borderRadius: 0 } }}>
+            <DialogTitle sx={{ bgcolor: '#1a1a1a', color: '#ff9800', borderBottom: '1px solid #333', fontFamily: 'monospace' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Typography variant="h6" sx={{ fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 1 }}>
+                        ⚔️ COMBAT
+                    </Typography>
+                    <Chip label={`TOUR ${combatState.rounds}`} sx={{ bgcolor: '#ff9800', color: '#000', fontWeight: 'bold', fontFamily: 'monospace' }} size="small" />
+                </Box>
+            </DialogTitle>
+
+            <DialogContent sx={{ p: 2, bgcolor: '#0a0a0a' }}>
+                <Grid container spacing={2}>
+                    {/* Mob Stats */}
+                    <Grid item xs={12} md={6}>
+                        <Paper sx={{ p: 2, bgcolor: '#1a1a1a', color: 'white', border: '1px solid #ff4444', borderRadius: 0 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                <Typography variant="h4" sx={{ mr: 1 }}>{combatState.mob_icon}</Typography>
+                                <Box sx={{ flex: 1 }}>
+                                    <Typography variant="h6" sx={{ fontFamily: 'monospace', color: '#ff4444' }}>{combatState.mob_name}</Typography>
+                                    <Chip label={`NIV ${combatState.mob_level}`} size="small" sx={{ bgcolor: 'rgba(255,68,68,0.2)', color: '#ff4444', border: '1px solid #ff4444', fontFamily: 'monospace' }} />
+                                </Box>
+                            </Box>
+                            <Box sx={{ mb: 1 }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                                        <Favorite sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
+                                        VIE
+                                    </Typography>
+                                    <Typography variant="body2" fontWeight="bold" sx={{ fontFamily: 'monospace' }}>
+                                        {combatState.mob_health} / {combatState.mob_max_health}
+                                    </Typography>
+                                </Box>
+                                <LinearProgress
+                                    variant="determinate"
+                                    value={mobHealthPercent}
+                                    sx={{
+                                        height: 10,
+                                        borderRadius: 0,
+                                        bgcolor: '#333',
+                                        '& .MuiLinearProgress-bar': {
+                                            bgcolor: mobHealthPercent > 50 ? '#44ff44' : mobHealthPercent > 20 ? '#ffaa00' : '#ff4444'
+                                        }
+                                    }}
+                                />
+                            </Box>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                <Chip label={`⚔️ ${combatState.mob_attack}`} size="small" sx={{ bgcolor: '#333', color: '#fff', fontFamily: 'monospace' }} />
+                                <Chip label={`🛡️ ${combatState.mob_defense}`} size="small" sx={{ bgcolor: '#333', color: '#fff', fontFamily: 'monospace' }} />
+                            </Box>
+                        </Paper>
+                    </Grid>
+
+                    {/* Player Stats */}
+                    <Grid item xs={12} md={6}>
+                        <Paper sx={{ p: 2, bgcolor: '#1a1a1a', color: 'white', border: '1px solid #4a9eff', borderRadius: 0 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                <Typography variant="h4" sx={{ mr: 1 }}>🧙</Typography>
+                                <Box sx={{ flex: 1 }}>
+                                    <Typography variant="h6" sx={{ fontFamily: 'monospace', color: '#4a9eff' }}>VOUS</Typography>
+                                </Box>
+                            </Box>
+                            <Box sx={{ mb: 1 }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                                        <Favorite sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
+                                        VIE
+                                    </Typography>
+                                    <Typography variant="body2" fontWeight="bold" sx={{ fontFamily: 'monospace' }}>
+                                        {combatState.player_health} / {combatState.player_max_health}
+                                    </Typography>
+                                </Box>
+                                <LinearProgress
+                                    variant="determinate"
+                                    value={playerHealthPercent}
+                                    sx={{
+                                        height: 10,
+                                        borderRadius: 0,
+                                        bgcolor: '#333',
+                                        '& .MuiLinearProgress-bar': {
+                                            bgcolor: playerHealthPercent > 50 ? '#44ff44' : playerHealthPercent > 20 ? '#ffaa00' : '#ff4444'
+                                        }
+                                    }}
+                                />
+                            </Box>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                <Chip label={`Dégâts: ${combatState.total_damage_dealt}`} size="small" sx={{ bgcolor: '#333', color: '#ff9800', fontFamily: 'monospace' }} />
+                                <Chip label={`Reçus: ${combatState.total_damage_taken}`} size="small" sx={{ bgcolor: '#333', color: '#fff', fontFamily: 'monospace' }} />
+                            </Box>
+                        </Paper>
+                    </Grid>
+
+                    {/* Combat Log */}
+                    <Grid item xs={12}>
+                        <Paper sx={{ p: 2, maxHeight: 200, overflow: 'auto', bgcolor: '#111', border: '1px solid #333', borderRadius: 0 }}>
+                            <Typography variant="subtitle2" gutterBottom fontWeight="bold" sx={{ color: '#ff9800', fontFamily: 'monospace', letterSpacing: 1 }}>
+                                JOURNAL DE COMBAT
+                            </Typography>
+                            <List dense>
+                                {combatState.combat_log.map((log, index) => (
+                                    <ListItem key={index} sx={{ py: 0.5, px: 0 }}>
+                                        <ListItemText
+                                            primary={log}
+                                            primaryTypographyProps={{ variant: 'body2', fontFamily: 'monospace', color: '#ccc' }}
+                                        />
+                                    </ListItem>
+                                ))}
+                            </List>
+                        </Paper>
+                    </Grid>
+
+                    {/* Loot Display (if victory) */}
+                    {combatState.status === 'victory' && combatState.loot && combatState.loot.length > 0 && (
+                        <Grid item xs={12}>
+                            <Alert severity="success" icon="🎁" sx={{ bgcolor: 'rgba(76, 175, 80, 0.1)', border: '1px solid #4caf50' }}>
+                                <Typography variant="subtitle2" fontWeight="bold" gutterBottom sx={{ fontFamily: 'monospace' }}>
+                                    BUTIN OBTENU :
+                                </Typography>
+                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                    {combatState.loot.map((item, index) => (
+                                        <Chip
+                                            key={index}
+                                            label={`${item.icon || '📦'} ${item.name} x${item.quantity}`}
+                                            sx={{ bgcolor: '#333', color: '#44ff44', fontFamily: 'monospace' }}
+                                            size="small"
+                                        />
+                                    ))}
+                                </Box>
+                            </Alert>
+                        </Grid>
+                    )}
+                </Grid>
+            </DialogContent>
+
+            <DialogActions sx={{ p: 2, bgcolor: '#1a1a1a', borderTop: '1px solid #333', gap: 1 }}>
+                {isOngoing ? (
+                    <>
+                        <Tooltip title="Attaque normale (85% précision)">
+                            <Button
+                                variant="contained"
+                                sx={{
+                                    bgcolor: '#ff9800',
+                                    color: '#000',
+                                    fontFamily: 'monospace',
+                                    fontWeight: 'bold',
+                                    '&:hover': { bgcolor: '#ffb74d' }
+                                }}
+                                startIcon={<Gavel />}
+                                onClick={() => executeCombatAction('attack')}
+                                disabled={loading}
+                            >
+                                ATTAQUER
+                            </Button>
+                        </Tooltip>
+                        <Tooltip title="Coup puissant: +50% dégâts, -30% précision">
+                            <Button
+                                variant="contained"
+                                sx={{
+                                    bgcolor: '#ff4444',
+                                    color: '#fff',
+                                    fontFamily: 'monospace',
+                                    fontWeight: 'bold',
+                                    '&:hover': { bgcolor: '#ff6666' }
+                                }}
+                                startIcon={<FlashOn />}
+                                onClick={() => executeCombatAction('heavy_attack')}
+                                disabled={loading}
+                            >
+                                COUP PUISSANT
+                            </Button>
+                        </Tooltip>
+                        <Tooltip title="Réduit les dégâts de 50%">
+                            <Button
+                                variant="contained"
+                                sx={{
+                                    bgcolor: '#4a9eff',
+                                    color: '#fff',
+                                    fontFamily: 'monospace',
+                                    fontWeight: 'bold',
+                                    '&:hover': { bgcolor: '#6bb3ff' }
+                                }}
+                                startIcon={<Shield />}
+                                onClick={() => executeCombatAction('defend')}
+                                disabled={loading}
+                            >
+                                DÉFENDRE
+                            </Button>
+                        </Tooltip>
+                        <Tooltip title="Tenter de fuir">
+                            <Button
+                                variant="outlined"
+                                sx={{
+                                    borderColor: '#888',
+                                    color: '#888',
+                                    fontFamily: 'monospace',
+                                    fontWeight: 'bold',
+                                    '&:hover': { borderColor: '#aaa', color: '#aaa' }
+                                }}
+                                startIcon={<DirectionsRun />}
+                                onClick={() => executeCombatAction('flee')}
+                                disabled={loading}
+                            >
+                                FUIR
+                            </Button>
+                        </Tooltip>
+                    </>
+                ) : (
+                    <Button
+                        variant="contained"
+                        onClick={handleClose}
+                        sx={{
+                            bgcolor: '#ff9800',
+                            color: '#000',
+                            fontFamily: 'monospace',
+                            fontWeight: 'bold',
+                            '&:hover': { bgcolor: '#ffb74d' }
+                        }}
+                    >
+                        FERMER
+                    </Button>
+                )}
+            </DialogActions>
+        </Dialog>
+    );
+}
+
+export default CombatInterface;
