@@ -82,7 +82,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'crafting_game',
-        'USER': 'sevans',
+        'USER': 'sevans_new',
         'PASSWORD': 'Oketos2727!',
         'HOST': '82.65.121.46',
         'PORT': '5432',
